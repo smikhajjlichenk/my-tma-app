@@ -1,4 +1,3 @@
-import { defineNuxtPlugin } from '#app'
 import { init, miniApp, backButton } from '@tma.js/sdk-vue'
 // ВАЖНО: Импорт из bridge
 import { mockTelegramEnv } from '@tma.js/bridge'

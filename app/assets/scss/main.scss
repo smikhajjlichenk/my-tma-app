@@ -1,0 +1,19 @@
+// assets/scss/main.scss
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// Теперь тут можно писать на SCSS
+// Пример (Nested rules работают):
+.page-container {
+  @apply min-h-screen bg-gray-50; // Использование Tailwind внутри SCSS
+
+  .header-icon {
+    @apply w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center;
+
+    &:hover {
+      @apply bg-blue-200 transition-colors;
+    }
+  }
+}
