@@ -1,10 +1,11 @@
-// plugins/telegram.client.ts
 import { defineNuxtPlugin } from '#app'
-import { retrieveLaunchParams } from '@tma.js/sdk'
+import { retrieveLaunchParams } from '@tma.js/sdk' // Убрали лишние импорты
 import { mockTelegramEnv } from '@tma.js/bridge'
 
 export default defineNuxtPlugin((nuxtApp) => {
-  // 1. Mocks (оставляем для локалки)
+  const backupKey = 'tma_init_data_backup'
+
+  // 1. MOCK (Dev Only)
   if (import.meta.dev) {
     try {
       mockTelegramEnv({
@@ -18,17 +19,47 @@ export default defineNuxtPlugin((nuxtApp) => {
     } catch (e) {}
   }
 
-  // 2. Инициализация (ТЕПЕРЬ БЕЗОПАСНА)
-  // Благодаря скрипту в nuxt.config, здесь ВСЕГДА будет хеш, если это ТМА.
+  // 2. ИЩЕМ ДАННЫЕ
   let lp = undefined
-  try {
-    lp = retrieveLaunchParams()
-    console.log('✅ SDK Init Params:', lp)
-  } catch (e) {
-    console.error('⚠️ Failed to retrieve params:', e)
+  let source = 'none'
+
+  // Хелпер для безопасного вызова
+  const tryGetParams = () => {
+    try {
+      return retrieveLaunchParams()
+    } catch (e) {
+      return undefined
+    }
   }
 
+  // Попытка 1: Читаем то, что есть в браузере прямо сейчас
+  lp = tryGetParams()
+
+  if (lp) {
+    source = 'url_direct'
+  } else {
+    // Попытка 2: Если пусто, проверяем наш бэкап (который сохранил скрипт в head)
+    const backup = sessionStorage.getItem(backupKey)
+
+    if (backup) {
+      // Если URL пуст, а бэкап есть — ВОССТАНАВЛИВАЕМ ХЕШ БРАУЗЕРА
+      // Это заставит SDK увидеть данные
+      if (window.location.hash !== backup) {
+        window.location.hash = backup
+      }
+
+      // И пробуем снова через SDK
+      lp = tryGetParams()
+      if (lp) source = 'restored_backup'
+    }
+  }
+
+  console.log(`✅ TMA Plugin finished. Source: ${source}`)
+
   return {
-    provide: { lp }
+    provide: {
+      lp: lp,
+      debugSource: source
+    }
   }
 })
