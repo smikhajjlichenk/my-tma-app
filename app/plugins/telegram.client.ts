@@ -1,5 +1,6 @@
+// plugins/telegram.client.ts
 import { defineNuxtPlugin } from '#app'
-import { retrieveLaunchParams } from '@tma.js/sdk' // Убрали лишние импорты
+import { retrieveLaunchParams } from '@tma.js/sdk'
 import { mockTelegramEnv } from '@tma.js/bridge'
 
 export default defineNuxtPlugin((nuxtApp) => {
@@ -8,53 +9,67 @@ export default defineNuxtPlugin((nuxtApp) => {
   // 1. MOCK (Dev Only)
   if (import.meta.dev) {
     try {
-      mockTelegramEnv({
-        launchParams: {
-          tgWebAppData: 'user=%7B%22id%22%3A99281932%2C%22first_name%22%3A%22Andrew%22%2C%22last_name%22%3A%22Dev%22%2C%22username%22%3A%22rogue%22%2C%22language_code%22%3A%22en%22%2C%22is_premium%22%3Atrue%2C%22allows_write_to_pm%22%3Atrue%7D&chat_instance=8446398900545146168&chat_type=sender&auth_date=1716922846&hash=d4d59a24312090977986e41291a161596476a82c42326d6a78e39973803d0392',
-          tgWebAppThemeParams: { bg_color: "#ffffff", button_text_color: "#ffffff" },
-          tgWebAppVersion: '7.2',
-          tgWebAppPlatform: 'tdesktop'
-        }
-      })
+      mockTelegramEnv({ /* ... твои моки ... */ })
     } catch (e) {}
   }
 
-  // 2. ИЩЕМ ДАННЫЕ
+  // 2. ВОССТАНОВЛЕНИЕ ХЕША (если пропал)
+  // Мы уже знаем, что хеш есть, но на всякий случай оставляем логику
+  const currentHash = window.location.hash
+  if (currentHash && currentHash.length > 10) {
+     // Хеш на месте, всё ок
+  } else {
+    const backup = sessionStorage.getItem(backupKey)
+    if (backup && window.location.hash !== backup) {
+      window.location.hash = backup
+    }
+  }
+
   let lp = undefined
   let source = 'none'
 
-  // Хелпер для безопасного вызова
-  const tryGetParams = () => {
+  // 3. ПОПЫТКА ПОЛУЧИТЬ ДАННЫЕ
+  try {
+    // А. Пробуем официальный метод
+    lp = retrieveLaunchParams()
+    source = 'sdk_standard'
+  } catch (sdkError) {
+    console.warn('SDK failed to parse, trying manual fallback...', sdkError)
+
+    // Б. РУЧНОЙ ПАРСИНГ (PLAN B)
+    // Если SDK не справился, но хеш есть — парсим сами.
     try {
-      return retrieveLaunchParams()
-    } catch (e) {
-      return undefined
-    }
-  }
+      const hash = window.location.hash.slice(1) // Убираем #
+      const params = new URLSearchParams(hash)
 
-  // Попытка 1: Читаем то, что есть в браузере прямо сейчас
-  lp = tryGetParams()
+      const tgWebAppData = params.get('tgWebAppData')
+      const platform = params.get('tgWebAppPlatform') || 'unknown'
 
-  if (lp) {
-    source = 'url_direct'
-  } else {
-    // Попытка 2: Если пусто, проверяем наш бэкап (который сохранил скрипт в head)
-    const backup = sessionStorage.getItem(backupKey)
+      if (tgWebAppData) {
+        // Данные внутри tgWebAppData тоже закодированы, парсим их
+        const dataParams = new URLSearchParams(tgWebAppData)
+        const userStr = dataParams.get('user')
 
-    if (backup) {
-      // Если URL пуст, а бэкап есть — ВОССТАНАВЛИВАЕМ ХЕШ БРАУЗЕРА
-      // Это заставит SDK увидеть данные
-      if (window.location.hash !== backup) {
-        window.location.hash = backup
+        if (userStr) {
+          const user = JSON.parse(userStr)
+
+          // Собираем объект, похожий на тот, что отдает SDK
+          lp = {
+            platform: platform,
+            initData: {
+              user: user
+            },
+            // Остальные поля можно опустить для UI
+          }
+          source = 'manual_parsing'
+        }
       }
-
-      // И пробуем снова через SDK
-      lp = tryGetParams()
-      if (lp) source = 'restored_backup'
+    } catch (manualError) {
+      console.error('Manual parsing failed too', manualError)
     }
   }
 
-  console.log(`✅ TMA Plugin finished. Source: ${source}`)
+  console.log(`✅ TMA Plugin finished. Source: ${source}`, lp)
 
   return {
     provide: {
