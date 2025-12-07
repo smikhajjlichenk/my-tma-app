@@ -95,7 +95,7 @@ const menuItems = [
   <div class="min-h-screen bg-gray-50 text-gray-900 font-sans pb-24">
 
     <!-- DEBUG PANEL: Если видишь этот текст, значит скрипт отработал -->
-    <div class="bg-black text-green-400 p-2 text-[10px] font-mono break-all border-b border-green-900 leading-tight">
+    <div v-if="false" class="bg-black text-green-400 p-2 text-[10px] font-mono break-all border-b border-green-900 leading-tight">
       {{ debugLog }}
     </div>
 
