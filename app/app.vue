@@ -16,6 +16,10 @@ const menuItems = [
 
 <template>
   <div class="min-h-screen bg-gray-50 text-gray-900 font-sans pb-24">
+    <!-- ВРЕМЕННЫЙ ДЕБАГ ЮЗЕРА -->
+    <div class="bg-yellow-100 p-2 text-xs font-mono break-all text-black border-b border-yellow-300">
+      RAW USER: {{ user }}
+    </div>
 
     <!-- HEADER -->
     <header class="p-5 flex items-center justify-between">
@@ -30,7 +34,7 @@ const menuItems = [
           <p class="text-xs text-gray-500 font-medium">Welcome back,</p>
           <div class="flex items-center gap-1">
             <h1 class="font-bold text-xl leading-tight text-gray-800">
-              {{ user?.firstName || 'Guest' }} {{ user?.lastName || '' }}
+              {{ user?.firstName || user?.first_name || 'Guest' }}
             </h1>
             <!-- Значок премиума -->
             <span v-if="isPremium" class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[10px] px-1.5 py-0.5 rounded-md font-bold shadow-sm">
