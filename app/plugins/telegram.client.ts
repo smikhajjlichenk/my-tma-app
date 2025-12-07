@@ -1,53 +1,84 @@
-import { defineNuxtPlugin } from '#app'
-import { init, miniApp, backButton } from '@tma.js/sdk-vue'
-// ВАЖНО: Импорт из bridge
+import { retrieveLaunchParams, type LaunchParams } from '@tma.js/sdk'
 import { mockTelegramEnv } from '@tma.js/bridge'
 
-export default defineNuxtPlugin((nuxtApp) => {
-  // 1. MOCK ENVIRONMENT (DEV ONLY)
+/**
+ * Ручной парсер на случай, если SDK не справился с форматом Vercel/Router
+ */
+function manualParse(hash: string): LaunchParams | undefined {
+  try {
+    const cleanHash = hash.startsWith('#') ? hash.slice(1) : hash
+    const params = new URLSearchParams(cleanHash)
+
+    const tgWebAppData = params.get('tgWebAppData')
+    const platform = params.get('tgWebAppPlatform') || 'unknown'
+    const version = params.get('tgWebAppVersion') || '7.0'
+
+    if (!tgWebAppData) return undefined
+
+    const dataParams = new URLSearchParams(tgWebAppData)
+    const userJson = dataParams.get('user')
+
+    // Собираем объект
+    const manuallyParsed = {
+      platform,
+      version,
+      // Важно: добавляем пустой объект темы, чтобы не крашилось при доступе
+      themeParams: {},
+      initData: {
+        user: userJson ? JSON.parse(userJson) : undefined
+      },
+      // Можно добавить initDataRaw, если нужно
+      initDataRaw: tgWebAppData
+    }
+
+    // 👇 ФИКС ОШИБКИ: Сначала приводим к unknown, потом к целевому типу
+    return manuallyParsed as unknown as LaunchParams
+
+  } catch (e) {
+    console.error('Manual parse failed:', e)
+    return undefined
+  }
+}
+
+export default defineNuxtPlugin(() => {
+  // 1. MOCK ENVIRONMENT (Dev Only)
   if (import.meta.dev) {
     try {
-      console.log('🔧 Initializing Telegram Mock via Bridge...')
-
-      // Мы передаем параметры запуска так, как будто они пришли из URL
       mockTelegramEnv({
         launchParams: {
-          tgWebAppData: 'user=%7B%22id%22%3A99281932%2C%22first_name%22%3A%22Andrew%22%2C%22last_name%22%3A%22Rogue%22%2C%22username%22%3A%22rogue%22%2C%22language_code%22%3A%22en%22%2C%22is_premium%22%3Atrue%2C%22allows_write_to_pm%22%3Atrue%7D&chat_instance=8446398900545146168&chat_type=sender&auth_date=1716922846&hash=d4d59a24312090977986e41291a161596476a82c42326d6a78e39973803d0392&signature=664074726879266742757a2b4f35525265614c4e75594f4c653045496351536634685350424e57755976493d',
-          tgWebAppThemeParams: {
-             bg_color: "#ffffff",
-             text_color: "#000000",
-             hint_color: "#999999",
-             link_color: "#2481cc",
-             button_color: "#2481cc",
-             button_text_color: "#ffffff"
-          },
+          tgWebAppData: 'user=%7B%22id%22%3A777%2C%22first_name%22%3A%22Dev%22%2C%22last_name%22%3A%22User%22%2C%22username%22%3A%22developer%22%2C%22language_code%22%3A%22en%22%2C%22is_premium%22%3Atrue%7D&tgWebAppVersion=7.2&tgWebAppPlatform=tdesktop',
+          tgWebAppThemeParams: {},
           tgWebAppVersion: '7.2',
           tgWebAppPlatform: 'tdesktop'
         }
       })
+    } catch (e) {}
+  }
 
-      console.log('✅ Mock Environment set')
-    } catch (error) {
-      console.error('❌ Mock failed:', error)
+  // 2. LOGIC
+  let lp: LaunchParams | undefined
+  let source = 'none'
+
+  // Пытаемся через SDK
+  try {
+    lp = retrieveLaunchParams()
+    source = 'sdk'
+  } catch (e) {
+    // Пытаемся вручную (Backup Plan)
+    const hash = window.location.hash || sessionStorage.getItem('tma_backup') || ''
+    if (hash) {
+      lp = manualParse(hash)
+      if (lp) source = 'manual_fallback'
     }
   }
 
-  // 2. INITIALIZATION
-  try {
-    // Теперь init() успешно "постучится" в наш фейковый bridge
-    init()
+  // Лог для продакшена (можно убрать потом)
+  console.log(`[TMA Init] Source: ${source}`, lp)
 
-    if (miniApp.isSupported()) {
-      miniApp.mount()
-      console.log('🎨 MiniApp Mounted')
+  return {
+    provide: {
+      lp,
+      debugSource: source
     }
-
-    if (backButton.isSupported()) {
-      backButton.mount()
-    }
-
-    console.log('✅ TMA SDK initialized!')
-  } catch (error) {
-    console.error('🚨 SDK Init Error:', error)
   }
 })
