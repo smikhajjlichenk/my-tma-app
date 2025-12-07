@@ -1,4 +1,3 @@
-import { defineNuxtPlugin } from '#app'
 import { retrieveLaunchParams, type LaunchParams } from '@tma.js/sdk'
 import { mockTelegramEnv } from '@tma.js/bridge'
 

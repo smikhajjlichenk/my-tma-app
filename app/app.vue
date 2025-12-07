@@ -22,7 +22,7 @@ const menuItems = [
       <div class="flex items-center gap-3">
         <!-- Аватар -->
         <div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200 shadow-sm text-lg">
-           {{ user?.first_name?.[0] || '?' }}
+           {{ user?.firstName?.[0] || '?' }}
         </div>
 
         <!-- Инфо -->
@@ -30,7 +30,7 @@ const menuItems = [
           <p class="text-xs text-gray-500 font-medium">Welcome back,</p>
           <div class="flex items-center gap-1">
             <h1 class="font-bold text-xl leading-tight text-gray-800">
-              {{ user?.first_name || 'Guest' }}
+              {{ user?.firstName || 'Guest' }} {{ user?.lastName || '' }}
             </h1>
             <!-- Значок премиума -->
             <span v-if="isPremium" class="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[10px] px-1.5 py-0.5 rounded-md font-bold shadow-sm">
