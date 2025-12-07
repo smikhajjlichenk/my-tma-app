@@ -1,71 +1,69 @@
-// plugins/telegram.client.ts
 import { defineNuxtPlugin } from '#app'
-import { retrieveLaunchParams } from '@tma.js/sdk'
 import { mockTelegramEnv } from '@tma.js/bridge'
 
 export default defineNuxtPlugin((nuxtApp) => {
-  const backupKey = 'tma_init_data_backup'
-
   // 1. MOCK (Dev Only)
   if (import.meta.dev) {
     try {
-      mockTelegramEnv({ /* ... твои моки ... */ })
+       // Оставляем моки, чтобы работало на localhost
+       mockTelegramEnv({
+        launchParams: {
+          tgWebAppData: 'user=%7B%22id%22%3A99%2C%22first_name%22%3A%22Dev%22%7D&hash=123',
+          tgWebAppThemeParams: {},
+          tgWebAppVersion: '7.0',
+          tgWebAppPlatform: 'tdesktop'
+        }
+      })
     } catch (e) {}
   }
 
-  // 2. ВОССТАНОВЛЕНИЕ ХЕША (если пропал)
-  // Мы уже знаем, что хеш есть, но на всякий случай оставляем логику
-  const currentHash = window.location.hash
-  if (currentHash && currentHash.length > 10) {
-     // Хеш на месте, всё ок
-  } else {
+  // 2. ВОССТАНОВЛЕНИЕ ХЕША (Backup Logic)
+  const backupKey = 'tma_init_data_backup'
+  let currentHash = window.location.hash
+
+  if (!currentHash || currentHash.length < 10) {
     const backup = sessionStorage.getItem(backupKey)
-    if (backup && window.location.hash !== backup) {
+    if (backup) {
+      currentHash = backup
+      // Возвращаем в URL для красоты (не обязательно, но полезно)
       window.location.hash = backup
     }
   }
 
+  // 3. ПАРСИНГ (Самая важная часть)
   let lp = undefined
   let source = 'none'
 
-  // 3. ПОПЫТКА ПОЛУЧИТЬ ДАННЫЕ
-  try {
-    // А. Пробуем официальный метод
-    lp = retrieveLaunchParams()
-    source = 'sdk_standard'
-  } catch (sdkError) {
-    console.warn('SDK failed to parse, trying manual fallback...', sdkError)
-
-    // Б. РУЧНОЙ ПАРСИНГ (PLAN B)
-    // Если SDK не справился, но хеш есть — парсим сами.
+  if (currentHash && currentHash.includes('tgWebAppData')) {
     try {
-      const hash = window.location.hash.slice(1) // Убираем #
-      const params = new URLSearchParams(hash)
+      // Убираем решетку в начале, если есть
+      const cleanHash = currentHash.startsWith('#') ? currentHash.slice(1) : currentHash
 
-      const tgWebAppData = params.get('tgWebAppData')
-      const platform = params.get('tgWebAppPlatform') || 'unknown'
+      // Первый уровень парсинга: разбираем параметры запуска
+      const urlParams = new URLSearchParams(cleanHash)
+      const tgWebAppData = urlParams.get('tgWebAppData') // Это тоже закодированная строка!
+      const platform = urlParams.get('tgWebAppPlatform') || 'unknown'
 
       if (tgWebAppData) {
-        // Данные внутри tgWebAppData тоже закодированы, парсим их
+        // Второй уровень парсинга: разбираем данные внутри tgWebAppData
         const dataParams = new URLSearchParams(tgWebAppData)
-        const userStr = dataParams.get('user')
+        const userJson = dataParams.get('user')
 
-        if (userStr) {
-          const user = JSON.parse(userStr)
+        if (userJson) {
+          const user = JSON.parse(userJson)
 
-          // Собираем объект, похожий на тот, что отдает SDK
+          // Собираем объект вручную, имитируя SDK
           lp = {
             platform: platform,
             initData: {
               user: user
-            },
-            // Остальные поля можно опустить для UI
+            }
           }
-          source = 'manual_parsing'
+          source = 'manual_success'
         }
       }
-    } catch (manualError) {
-      console.error('Manual parsing failed too', manualError)
+    } catch (e) {
+      console.error('Manual parsing error:', e)
     }
   }
 
