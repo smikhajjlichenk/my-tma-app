@@ -1,42 +1,59 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { retrieveLaunchParams, type User } from '@tma.js/sdk'
-import { Wallet, History, MessageSquare, Zap, Settings } from 'lucide-vue-next'
+import { Wallet, History, MessageSquare, Zap, Settings, User as UserIcon } from 'lucide-vue-next'
 
-// 1. Пытаемся достать параметры (сработает в Телеграме)
-// Если мы локально и хеша нет, эта функция может вернуть ошибку или пустой объект.
-// Поэтому обернем в try/catch для безопасности.
-let lp: any = {}
-try {
-  lp = retrieveLaunchParams()
-} catch (e) {
-  console.warn('⚠️ Нет параметров запуска (это нормально на localhost)')
-}
+// --- STATE ---
+const rawUser = ref<User | undefined>(undefined)
+const debugLog = ref<string>('Initializing...') // Лог для отладки на телефоне
 
-// 2. Умное вычисление юзера
-const user = computed<User | undefined>(() => {
-  // А. Пробуем достать реального юзера (если мы в ТГ)
-  const realUser = (lp.initData as { user?: User } | undefined)?.user
+// --- LOGIC ---
+onMounted(() => {
+  // 1. Попытка инициализации SDK
+  try {
+    // retrieveLaunchParams пытается считать хеш из URL
+    const lp = retrieveLaunchParams()
 
-  if (realUser) return realUser
+    // Если успешно — логируем платформу (ios/android/tdesktop)
+    debugLog.value = `✅ SDK OK. Platform: ${lp.platform}`
 
-  // Б. ФОЛБЭК ДЛЯ DEV (Если реального нет, и мы на локалхосте — отдаем фейк)
-  if (import.meta.dev) {
-    return {
-      id: 123456,
-      first_name: 'Andrew', // Имя для теста
-      last_name: 'Dev',
-      username: 'andrew_dev',
-      language_code: 'en',
-      is_premium: true
-    } as User
+    // Сохраняем юзера. Приводим тип, так как initData может быть undefined
+    const data = lp.initData as { user?: User } | undefined
+
+    if (data?.user) {
+      rawUser.value = data.user
+      debugLog.value += ` | User: ${data.user.id}`
+    } else {
+      debugLog.value += ` | ⚠️ User is undefined (Privacy settings?)`
+    }
+
+  } catch (e: any) {
+    // Если SDK упал (например, нет хеша)
+    console.error(e)
+    debugLog.value = `❌ SDK Error: ${e.message || 'Unknown error'}`
+
+    // 2. Фолбэк для локальной разработки (Dev Mode)
+    if (import.meta.dev) {
+      debugLog.value += ' | (DEV MODE: Using Mock Data)'
+      rawUser.value = {
+        id: 12345,
+        first_name: 'Andrew',
+        last_name: 'Dev',
+        username: 'andrew_dev',
+        language_code: 'en',
+        is_premium: true
+      } as User
+    }
   }
-
-  return undefined
 })
 
+// Computed обертка для удобства
+const user = computed(() => rawUser.value)
+
+// Фейковые данные баланса
 const balance = 1250.50
 
+// Меню действий
 const menuItems = [
   { label: 'AI Chat', icon: MessageSquare, color: 'bg-blue-500' },
   { label: 'Wallet', icon: Wallet, color: 'bg-purple-500' },
@@ -46,16 +63,23 @@ const menuItems = [
 </script>
 
 <template>
-  <!-- Main Container: h-screen чтобы занять весь экран TMA, overflow-hidden чтобы не скроллилось лишнее -->
   <div class="min-h-screen bg-gray-50 text-gray-900 font-sans pb-20">
+
+    <!-- 🔴 DEBUG PANEL (Видна только если что-то пошло не так или для теста) -->
+    <div class="bg-black text-green-400 p-2 text-[10px] font-mono break-all border-b border-green-900 leading-tight">
+      DEBUG: {{ debugLog }}
+    </div>
 
     <!-- HEADER -->
     <header class="p-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <!-- Аватар заглушка (или user.photo_url если есть) -->
-        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-          {{ user?.first_name?.[0] || 'U' }}
+        <!-- Аватар -->
+        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+           <!-- Если есть фото — можно поставить <img>, пока просто буква -->
+           {{ user?.first_name?.[0] || '?' }}
         </div>
+
+        <!-- Имя -->
         <div>
           <p class="text-xs text-gray-500">Welcome back,</p>
           <h1 class="font-bold text-lg leading-tight">
@@ -63,6 +87,8 @@ const menuItems = [
           </h1>
         </div>
       </div>
+
+      <!-- Кнопка настроек -->
       <button class="p-2 bg-white rounded-full shadow-sm active:scale-95 transition">
         <Settings class="w-5 h-5 text-gray-600" />
       </button>
@@ -70,17 +96,20 @@ const menuItems = [
 
     <!-- BALANCE CARD -->
     <div class="px-4 mt-2">
-      <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-200">
-        <p class="text-blue-100 text-sm font-medium mb-1">Total Balance</p>
-        <div class="flex items-baseline gap-1">
-          <span class="text-3xl font-bold">${{ balance.toLocaleString() }}</span>
-          <span class="text-blue-200 text-sm">USD</span>
+      <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden">
+        <!-- Декор на фоне -->
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+
+        <p class="text-blue-100 text-sm font-medium mb-1 relative z-10">Total Balance</p>
+        <div class="flex items-baseline gap-1 relative z-10">
+          <span class="text-3xl font-bold">${{ balance.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
         </div>
-        <div class="mt-4 flex gap-3">
-          <button class="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md py-2 rounded-lg text-sm font-medium transition">
+
+        <div class="mt-4 flex gap-3 relative z-10">
+          <button class="flex-1 bg-white/20 hover:bg-white/30 active:bg-white/40 backdrop-blur-md py-2 rounded-lg text-sm font-medium transition">
             Deposit
           </button>
-          <button class="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-md py-2 rounded-lg text-sm font-medium transition">
+          <button class="flex-1 bg-white/20 hover:bg-white/30 active:bg-white/40 backdrop-blur-md py-2 rounded-lg text-sm font-medium transition">
             Withdraw
           </button>
         </div>
@@ -104,21 +133,23 @@ const menuItems = [
       </div>
     </div>
 
-    <!-- BOTTOM NAV (OPTIONAL) -->
-    <nav class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center pb-safe">
-       <!-- pb-safe нужен для iPhone (Home Indicator) -->
-       <div class="flex flex-col items-center text-blue-600">
-         <User class="w-6 h-6" />
+    <!-- BOTTOM TAB BAR (Visual Only) -->
+    <nav class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 px-6 py-3 flex justify-around items-center pb-safe z-50">
+       <button class="flex flex-col items-center text-blue-600">
+         <UserIcon class="w-6 h-6" />
          <span class="text-[10px] font-medium mt-1">Home</span>
-       </div>
-       <!-- Добавь другие табы если нужно -->
+       </button>
+       <button class="flex flex-col items-center text-gray-400 hover:text-gray-600">
+         <History class="w-6 h-6" />
+         <span class="text-[10px] font-medium mt-1">Activity</span>
+       </button>
     </nav>
 
   </div>
 </template>
 
 <style>
-/* CSS HACK для iOS: чтобы нижний отступ учитывал "челку" снизу */
+/* Учитываем safe-area на iPhone (челку и полоску снизу) */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 20px);
 }
