@@ -1,56 +1,53 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
-import { retrieveLaunchParams, type User } from '@tma.js/sdk'
+import type { User } from '@tma.js/sdk'
 import { Wallet, History, MessageSquare, Zap, Settings, User as UserIcon } from 'lucide-vue-next'
 
 // --- STATE ---
 const rawUser = ref<User | undefined>(undefined)
-const debugLog = ref<string>('Initializing...') // Лог для отладки на телефоне
+const debugLog = ref<string>('Vue Init...')
 
 // --- LOGIC ---
 onMounted(() => {
-  // 1. Попытка инициализации SDK
-  try {
-    // retrieveLaunchParams пытается считать хеш из URL
-    const lp = retrieveLaunchParams()
+  // 1. Получаем данные из плагина (он запустился раньше Роутера и сохранил хеш)
+  const { $lp } = useNuxtApp() as any // as any чтобы TS не ругался на кастомное свойство
 
-    // Если успешно — логируем платформу (ios/android/tdesktop)
-    debugLog.value = `✅ SDK OK. Platform: ${lp.platform}`
+  if ($lp && $lp.platform) {
+    // ВАРИАНТ 1: Успех (Данные пришли из плагина)
+    debugLog.value = `✅ FROM PLUGIN. Plat: ${$lp.platform}`
 
-    // Сохраняем юзера. Приводим тип, так как initData может быть undefined
-    const data = lp.initData as { user?: User } | undefined
+    // Безопасно достаем юзера
+    const data = $lp.initData as { user?: User } | undefined
 
     if (data?.user) {
       rawUser.value = data.user
       debugLog.value += ` | User: ${data.user.id}`
     } else {
-      debugLog.value += ` | ⚠️ User is undefined (Privacy settings?)`
+      debugLog.value += ` | User Missing inside LP`
     }
-
-  } catch (e: any) {
-    // Если SDK упал (например, нет хеша)
-    console.error(e)
-    debugLog.value = `❌ SDK Error: ${e.message || 'Unknown error'}`
-
-    // 2. Фолбэк для локальной разработки (Dev Mode)
-    if (import.meta.dev) {
-      debugLog.value += ' | (DEV MODE: Using Mock Data)'
-      rawUser.value = {
-        id: 12345,
-        first_name: 'Andrew',
-        last_name: 'Dev',
-        username: 'andrew_dev',
-        language_code: 'en',
-        is_premium: true
-      } as User
-    }
+  }
+  else if (import.meta.dev) {
+    // ВАРИАНТ 2: Локальная разработка (Mock Data)
+    debugLog.value = 'DEV MODE (Mock Data Active)'
+    rawUser.value = {
+      id: 777,
+      first_name: 'Andrew',
+      last_name: 'Dev',
+      username: 'andrew_dev',
+      language_code: 'en',
+      is_premium: true
+    } as User
+  }
+  else {
+    // ВАРИАНТ 3: Ошибка (Открыто не через бота или редирект съел хеш)
+    debugLog.value = `❌ NO DATA from Plugin. URL Hash empty?`
   }
 })
 
-// Computed обертка для удобства
+// Computed обертка
 const user = computed(() => rawUser.value)
 
-// Фейковые данные баланса
+// Фейковый баланс
 const balance = 1250.50
 
 // Меню действий
@@ -65,7 +62,7 @@ const menuItems = [
 <template>
   <div class="min-h-screen bg-gray-50 text-gray-900 font-sans pb-20">
 
-    <!-- 🔴 DEBUG PANEL (Видна только если что-то пошло не так или для теста) -->
+    <!-- 🔴 DEBUG PANEL (Для отладки на телефоне) -->
     <div class="bg-black text-green-400 p-2 text-[10px] font-mono break-all border-b border-green-900 leading-tight">
       DEBUG: {{ debugLog }}
     </div>
@@ -75,7 +72,6 @@ const menuItems = [
       <div class="flex items-center gap-3">
         <!-- Аватар -->
         <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
-           <!-- Если есть фото — можно поставить <img>, пока просто буква -->
            {{ user?.first_name?.[0] || '?' }}
         </div>
 
@@ -97,7 +93,7 @@ const menuItems = [
     <!-- BALANCE CARD -->
     <div class="px-4 mt-2">
       <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden">
-        <!-- Декор на фоне -->
+        <!-- Декор -->
         <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
 
         <p class="text-blue-100 text-sm font-medium mb-1 relative z-10">Total Balance</p>
@@ -133,7 +129,7 @@ const menuItems = [
       </div>
     </div>
 
-    <!-- BOTTOM TAB BAR (Visual Only) -->
+    <!-- BOTTOM TAB BAR (Visual) -->
     <nav class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 px-6 py-3 flex justify-around items-center pb-safe z-50">
        <button class="flex flex-col items-center text-blue-600">
          <UserIcon class="w-6 h-6" />
@@ -149,7 +145,7 @@ const menuItems = [
 </template>
 
 <style>
-/* Учитываем safe-area на iPhone (челку и полоску снизу) */
+/* Учет "челки" и Home Indicator на iOS */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 20px);
 }
