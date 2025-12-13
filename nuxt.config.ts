@@ -41,7 +41,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Private keys (доступны только на сервере)
-    openaiApiKey: import.meta.env.NUXT_GROQ_API_KEY,
+    groqApiKey: import.meta.env.NUXT_GROQ_API_KEY,
 
     // Public keys (доступны и на клиенте, если нужно)
     public: {}
