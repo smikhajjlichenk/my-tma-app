@@ -1,7 +1,13 @@
 export default defineNuxtConfig({
-  ssr: false,
+  compatibilityDate: '2024-11-01',
+  ssr: false, // SPA Mode
   devtools: { enabled: true },
-  modules: ['@nuxtjs/tailwindcss'],
+
+  modules: [
+    '@nuxtjs/tailwindcss',
+    '@pinia/nuxt'
+  ],
+
   css: ['~/assets/scss/main.scss'],
 
   app: {
@@ -9,17 +15,25 @@ export default defineNuxtConfig({
       title: 'Andrew TMA',
       script: [
         {
-          // "Rescue Script" — сохраняет хеш до загрузки фреймворка
+          // Rescue Script: Сохраняет данные Telegram перед тем, как Nuxt загрузится
           innerHTML: `
             (function() {
               try {
-                const k='tma_backup', h=window.location.hash;
-                if(h.includes('tgWebAppData')) sessionStorage.setItem(k, h);
-                else { const b=sessionStorage.getItem(k); if(b) window.location.hash=b; }
-              } catch(e) {}
+                var key = 'tma_init_data_backup';
+                var hash = window.location.hash;
+
+                if (hash && hash.includes('tgWebAppData')) {
+                  sessionStorage.setItem(key, hash);
+                  console.log('[Rescue Script] Data saved to sessionStorage:', key);
+                }
+              } catch(e) {
+                console.error('[Rescue Script] Error:', e);
+              }
             })();
           `,
-          tagPosition: 'bodyOpen'
+          type: 'text/javascript',
+          // Ставим в head, чтобы сработало максимально рано
+          tagPosition: 'head'
         }
       ]
     }
