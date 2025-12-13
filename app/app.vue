@@ -4,9 +4,7 @@ import { useUserStore } from '~/stores/user'
 // Инициализируем юзера глобально при старте приложения
 const userStore = useUserStore()
 
-onMounted(() => {
-  userStore.initUser()
-})
+userStore.initUser()
 </script>
 
 <template>

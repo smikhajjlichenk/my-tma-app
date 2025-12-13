@@ -24,47 +24,45 @@ export const useUserStore = defineStore('user', () => {
   const initUser = () => {
     if (isReady.value) return
 
-    console.log('🕵️‍♂️ User Store: Regex Hunter Mode')
+    console.log('🕵️‍♂️ User Store: Init...')
 
-    // 1. Собираем все места, где может быть хеш
     const hash = window.location.hash
     const backup = sessionStorage.getItem('tma_init_data_backup')
+    let sourceRaw = ''
 
-    // Берем самую длинную строку (обычно это полные данные)
-    const rawData = (hash.length > (backup?.length || 0)) ? hash : (backup || '')
+    // 1. Приоритет: Данные в URL (если они там есть)
+    if (hash && hash.includes('tgWebAppData')) {
+      sourceRaw = hash
+      console.log('📍 Source: Fresh URL Hash')
+    }
+    // 2. Фолбек: Данные из Rescue Script (если URL уже чист)
+    else if (backup && backup.includes('tgWebAppData')) {
+      sourceRaw = backup
+      console.log('📍 Source: Backup (Rescue Script)')
+    }
 
-    if (!rawData) {
+    // 3. Если пусто — выходим (или мок)
+    if (!sourceRaw) {
       console.log('❌ No data found anywhere')
-      // Dev Mock
       if (import.meta.dev) {
-         user.value = { id: 777, first_name: 'Dev', last_name: 'Test', is_premium: true }
+         user.value = { id: 777, first_name: 'Dev', last_name: 'Hunter', is_premium: true }
       }
       isReady.value = true
       return
     }
 
-    console.log('📜 Raw Data to scan:', rawData.substring(0, 50) + '...')
-
+    // 4. Regex Hunter (Вырезаем JSON из любой каши)
     try {
-      // 2. Ищем паттерн user=... (до следующего амперсанда или конца строки)
-      // Работает, даже если URLSearchParams ломается
-      const match = rawData.match(/user=([^&]+)/)
-
+      const match = sourceRaw.match(/user=([^&]+)/)
       if (match && match[1]) {
-        console.log('🎯 Regex found user string')
-
-        // Декодируем (превращаем %7B в { и т.д.)
         const decoded = decodeURIComponent(match[1])
-        console.log('🔓 Decoded JSON string:', decoded)
-
-        // Парсим
         user.value = JSON.parse(decoded)
-        console.log('✅ SUCCESS! User parsed:', user.value)
+        console.log('✅ User Loaded:', user.value?.first_name)
       } else {
-        console.warn('⚠️ "user=" pattern not found in data')
+        console.warn('⚠️ Pattern not found')
       }
     } catch (e) {
-      console.error('❌ JSON Parse Error:', e)
+      console.error('❌ Parse Error:', e)
     }
 
     isReady.value = true
