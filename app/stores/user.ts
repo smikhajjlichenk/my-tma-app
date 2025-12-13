@@ -1,3 +1,5 @@
+import { defineStore } from 'pinia'
+
 interface User {
   id: number
   first_name: string
@@ -22,58 +24,47 @@ export const useUserStore = defineStore('user', () => {
   const initUser = () => {
     if (isReady.value) return
 
-    console.log('🔄 User Store: Init started...')
+    console.log('🕵️‍♂️ User Store: Regex Hunter Mode')
 
-    let hash = window.location.hash
-    let source = 'url'
-    let dataToParse = ''
+    // 1. Собираем все места, где может быть хеш
+    const hash = window.location.hash
+    const backup = sessionStorage.getItem('tma_init_data_backup')
 
-    // 1. Пытаемся взять из URL
-    if (hash && hash.includes('tgWebAppData')) {
-      dataToParse = hash
-      console.log('📍 Source: URL Hash detected')
+    // Берем самую длинную строку (обычно это полные данные)
+    const rawData = (hash.length > (backup?.length || 0)) ? hash : (backup || '')
+
+    if (!rawData) {
+      console.log('❌ No data found anywhere')
+      // Dev Mock
+      if (import.meta.dev) {
+         user.value = { id: 777, first_name: 'Dev', last_name: 'Test', is_premium: true }
+      }
+      isReady.value = true
+      return
     }
-    // 2. Если в URL пусто, ищем в SessionStorage (Rescue Script)
-    else {
-      console.log('⚠️ URL Hash missing or cleaned by router. Checking Backup...')
-      const backup = sessionStorage.getItem('tma_init_data_backup')
 
-      if (backup) {
-        dataToParse = backup
-        source = 'backup'
-        console.log('✅ Source: Backup found in sessionStorage')
+    console.log('📜 Raw Data to scan:', rawData.substring(0, 50) + '...')
+
+    try {
+      // 2. Ищем паттерн user=... (до следующего амперсанда или конца строки)
+      // Работает, даже если URLSearchParams ломается
+      const match = rawData.match(/user=([^&]+)/)
+
+      if (match && match[1]) {
+        console.log('🎯 Regex found user string')
+
+        // Декодируем (превращаем %7B в { и т.д.)
+        const decoded = decodeURIComponent(match[1])
+        console.log('🔓 Decoded JSON string:', decoded)
+
+        // Парсим
+        user.value = JSON.parse(decoded)
+        console.log('✅ SUCCESS! User parsed:', user.value)
       } else {
-        source = 'none'
-        console.log('❌ No data in URL or Backup')
+        console.warn('⚠️ "user=" pattern not found in data')
       }
-    }
-
-    // 3. Парсинг
-    if (source !== 'none' && dataToParse) {
-      try {
-        // Убираем # если есть
-        const cleanHash = dataToParse.startsWith('#') ? dataToParse.slice(1) : dataToParse
-        const params = new URLSearchParams(cleanHash)
-        const tgWebAppData = params.get('tgWebAppData')
-
-        if (tgWebAppData) {
-          const dataParams = new URLSearchParams(tgWebAppData)
-          const userJson = dataParams.get('user')
-          if (userJson) {
-            user.value = JSON.parse(userJson)
-            console.log('✅ User parsed successfully:', user.value)
-          }
-        } else {
-            console.error('❌ tgWebAppData param missing in hash')
-        }
-      } catch (e) {
-        console.error('❌ Parse error', e)
-      }
-    }
-    // 4. Dev Mock (Если локально и ничего не нашли)
-    else if (import.meta.dev || import.meta.env.DEV) {
-      console.log('👨‍💻 Dev Mode: Using Mock User')
-      user.value = { id: 1, first_name: 'Dev', last_name: 'Test', is_premium: true }
+    } catch (e) {
+      console.error('❌ JSON Parse Error:', e)
     }
 
     isReady.value = true
