@@ -6,6 +6,7 @@ export interface Message {
 }
 
 export const useChatStore = defineStore('chat', () => {
+  // --- STATE ---
   const messages = ref<Message[]>([
     {
       id: 'welcome',
@@ -17,10 +18,10 @@ export const useChatStore = defineStore('chat', () => {
 
   const isLoading = ref(false)
 
+  // --- ACTIONS ---
   const sendMessage = async (text: string) => {
     if (!text.trim()) return
 
-    // 1. Добавляем сообщение юзера сразу (Optimistic UI)
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -31,20 +32,16 @@ export const useChatStore = defineStore('chat', () => {
     isLoading.value = true
 
     try {
-      // 2. Формируем историю для отправки (API ждет массив {role, content})
-      // Берем последние 10 сообщений для контекста, чтобы экономить токены
       const apiMessages = messages.value.slice(-10).map(m => ({
         role: m.role,
         content: m.text
       }))
 
-      // 3. Делаем запрос на НАШ сервер (Server Route)
       const data = await $fetch<{ message: { content: string } }>('/api/chat', {
         method: 'POST',
         body: { messages: apiMessages }
       })
 
-      // 4. Добавляем ответ AI
       if (data.message && data.message.content) {
         const aiMsg: Message = {
           id: (Date.now() + 1).toString(),
@@ -56,7 +53,6 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (error) {
       console.error('Failed to send message:', error)
-      // Можно добавить системное сообщение об ошибке в чат
       messages.value.push({
         id: Date.now().toString(),
         role: 'assistant',
@@ -68,9 +64,39 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  const clearHistory = () => {
+    messages.value = []
+  }
+
   return {
     messages,
     isLoading,
-    sendMessage
+    sendMessage,
+    clearHistory
+  }
+}, {
+  // --- PERSISTENCE CONFIGURATION ---
+  persist: {
+    pick: ['messages'],
+
+    // Serializer обязателен для восстановления дат
+    serializer: {
+      serialize: (state) => JSON.stringify(state),
+      deserialize: (storageValue) => {
+        try {
+          const parsed = JSON.parse(storageValue)
+          if (parsed.messages) {
+            parsed.messages = parsed.messages.map((m: any) => ({
+              ...m,
+              createdAt: new Date(m.createdAt)
+            }))
+          }
+          return parsed
+        } catch (e) {
+          console.error('Persistence deserialization error:', e)
+          return { messages: [] }
+        }
+      }
+    }
   }
 })
