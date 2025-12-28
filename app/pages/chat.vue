@@ -1,83 +1,109 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia' // Убедись, что импортировано
 import { useChatStore } from '~/stores/chat'
 
 // Init Store
 const chatStore = useChatStore()
 const { messages, isLoading } = storeToRefs(chatStore)
 
-// Local state for input
-const userInput = ref('')
+// Refs
 const messagesContainer = ref<HTMLElement | null>(null)
 
 // Actions
-const handleSend = async () => {
-  if (!userInput.value.trim() || isLoading.value) return
-
-  const text = userInput.value
-  userInput.value = '' // Clear input immediately (Optimistic UI)
-
+// Теперь функция принимает text из события компонента ChatInput
+const handleSend = async (text: string) => {
   await chatStore.sendMessage(text)
   scrollToBottom()
 }
 
 const scrollToBottom = async () => {
-  await nextTick() // Wait for DOM update
+  await nextTick()
   if (messagesContainer.value) {
+    // ScrollHeight - ClientHeight дает нам позицию самого низа
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 }
 
-// Watcher to scroll down when new messages arrive
-watch(messages.value, () => {
+// Watchers
+// Следим за обновлением массива сообщений
+watch(
+  () => messages.value.length,
+  () => scrollToBottom()
+)
+
+// Lifecycle
+// Важно для Persistence: при F5 скроллим к последнему сообщению
+onMounted(() => {
   scrollToBottom()
 })
 </script>
 
 <template>
   <!-- Main Layout: Full viewport height, flex column -->
-  <div class="flex flex-col h-screen bg-white dark:bg-gray-900">
+  <div class="flex flex-col h-screen bg-white dark:bg-black transition-colors duration-300">
 
-    <!-- Header (Optional, simplified for now) -->
-    <header class="p-4 border-b dark:border-gray-800 flex items-center gap-2">
-      <NuxtLink to="/" class="text-gray-500">← Back</NuxtLink>
-      <h1 class="font-bold text-gray-800 dark:text-white">AI Assistant</h1>
+    <!-- Header -->
+    <header class="flex-none p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3 bg-white/80 dark:bg-black/80 backdrop-blur-md sticky top-0 z-10">
+      <NuxtLink
+        to="/"
+        class="text-gray-500 hover:text-gray-900 dark:hover:text-gray-300 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+      </NuxtLink>
+      <div>
+        <h1 class="font-bold text-gray-800 dark:text-white text-lg leading-tight">AI Assistant</h1>
+        <div class="flex items-center gap-1.5">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+          </span>
+          <span class="text-xs text-gray-500 font-medium">Online</span>
+        </div>
+      </div>
     </header>
 
-    <!-- Messages Area (Flex-grow takes available space) -->
+    <!-- Messages Area -->
     <main
       ref="messagesContainer"
       class="flex-1 overflow-y-auto p-4 scroll-smooth"
     >
+      <!-- Message List -->
       <ChatMessage
         v-for="msg in messages"
         :key="msg.id"
         :message="msg"
       />
 
-      <!-- Loading Indicator -->
-      <div v-if="isLoading" class="text-gray-400 text-xs ml-2 animate-pulse">
-        AI is typing...
-      </div>
+      <!-- Typing Indicator (плавное появление) -->
+      <transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-2"
+      >
+        <div v-if="isLoading" class="flex items-center gap-2 text-gray-400 text-xs ml-4 mb-2">
+          <div class="flex space-x-1">
+            <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+          </div>
+          <span>Thinking...</span>
+        </div>
+      </transition>
+
+      <!-- Пустой блок внизу, чтобы контент не прилипал к инпуту при скролле -->
+      <div class="h-2"></div>
     </main>
 
-    <!-- Input Area (Sticky Bottom) -->
-    <footer class="p-4 bg-white dark:bg-gray-900 border-t dark:border-gray-800">
-      <form @submit.prevent="handleSend" class="flex gap-2">
-        <input
-          v-model="userInput"
-          type="text"
-          placeholder="Ask something..."
-          class="flex-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-        />
-        <button
-          type="submit"
-          :disabled="!userInput.trim() || isLoading"
-          class="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <!-- Icon Send -->
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
-      </form>
-    </footer>
+    <!-- Input Area -->
+    <!-- Мы убрали <footer>, так как компонент сам содержит wrapper -->
+    <ChatInput
+      class="flex-none z-20"
+      :is-loading="isLoading"
+      @send="handleSend"
+    />
+
   </div>
 </template>
