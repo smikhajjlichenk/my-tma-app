@@ -1,3 +1,4 @@
+import { useSettingsStore } from './settings' // <--- IMPORT
 export interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -17,6 +18,7 @@ export const useChatStore = defineStore('chat', () => {
   ])
 
   const isLoading = ref(false)
+  const settingsStore = useSettingsStore()
 
   // --- ACTIONS ---
   const sendMessage = async (text: string) => {
@@ -37,9 +39,17 @@ export const useChatStore = defineStore('chat', () => {
         content: m.text
       }))
 
+      const payload = {
+        messages: apiMessages,
+        // Добавляем настройки в запрос
+        model: settingsStore.selectedModel,
+        temperature: settingsStore.temperature,
+        systemPrompt: settingsStore.systemPrompt
+      }
+
       const data = await $fetch<{ message: { content: string } }>('/api/chat', {
         method: 'POST',
-        body: { messages: apiMessages }
+        body: payload
       })
 
       if (data.message && data.message.content) {

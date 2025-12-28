@@ -29,9 +29,9 @@ const menuItems = [
           </h1>
         </div>
       </div>
-      <button class="p-2.5 bg-white rounded-full shadow-sm border border-gray-100 active:scale-90 transition-transform">
+      <NuxtLink to="/settings" class="p-2.5 bg-white rounded-full shadow-sm border border-gray-100 active:scale-90 transition-transform">
         <Settings class="w-5 h-5 text-gray-500" />
-      </button>
+      </NuxtLink>
     </header>
 
     <!-- BALANCE -->

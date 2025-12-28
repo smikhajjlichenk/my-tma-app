@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Settings } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia' // Убедись, что импортировано
 import { useChatStore } from '~/stores/chat'
 
@@ -60,6 +61,12 @@ onMounted(() => {
           <span class="text-xs text-gray-500 font-medium">Online</span>
         </div>
       </div>
+      <NuxtLink
+        to="/settings"
+        class="ml-auto text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+      >
+        <Settings class="w-6 h-6" />
+      </NuxtLink>
     </header>
 
     <!-- Messages Area -->
