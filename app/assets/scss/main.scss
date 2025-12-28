@@ -1,4 +1,5 @@
 // assets/scss/main.scss
+@import 'highlight.js/styles/github-dark.css';
 
 @tailwind base;
 @tailwind components;
@@ -15,5 +16,56 @@
     &:hover {
       @apply bg-blue-200 transition-colors;
     }
+  }
+}
+
+.markdown-body {
+  @apply text-sm leading-relaxed text-gray-100;
+
+  // Headers
+  h1, h2, h3, h4 {
+    @apply font-bold mt-4 mb-2 text-white;
+  }
+  h1 { @apply text-xl; }
+  h2 { @apply text-lg; }
+
+  // Lists
+  ul {
+    @apply list-disc list-outside ml-4 mb-2;
+  }
+  ol {
+    @apply list-decimal list-outside ml-4 mb-2;
+  }
+  li {
+    @apply mb-1;
+  }
+
+  // Inline Code
+  :not(pre) > code {
+    @apply bg-gray-800 text-pink-400 px-1.5 py-0.5 rounded text-xs font-mono;
+  }
+
+  // Code Blocks (handled by highlight.js wrapper)
+  pre.code-block {
+    @apply bg-[#0d1117] rounded-lg p-3 my-3 overflow-x-auto border border-gray-700;
+
+    code {
+      @apply bg-transparent p-0 text-xs font-mono;
+    }
+  }
+
+  // Links
+  a {
+    @apply text-blue-400 hover:underline break-all;
+  }
+
+  // Paragraphs
+  p {
+    @apply mb-2 last:mb-0;
+  }
+
+  // Blockquotes
+  blockquote {
+    @apply border-l-4 border-gray-600 pl-3 italic text-gray-400 my-2;
   }
 }

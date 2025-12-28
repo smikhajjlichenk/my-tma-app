@@ -13,7 +13,9 @@
     "@pinia/nuxt": "^0.11.3",
     "@tma.js/sdk": "^3.1.2",
     "@tma.js/sdk-vue": "^1.0.9",
+    "highlight.js": "^11.11.1",
     "lucide-vue-next": "^0.555.0",
+    "markdown-it": "^14.1.0",
     "nuxt": "^4.2.1",
     "openai": "^6.10.0",
     "pinia": "^3.0.4",
@@ -23,6 +25,7 @@
   "devDependencies": {
     "@nuxtjs/tailwindcss": "^6.14.0",
     "@tma.js/bridge": "^2.2.0",
+    "@types/markdown-it": "^14.1.2",
     "sass": "^1.94.2"
   }
 }
