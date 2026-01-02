@@ -14,6 +14,15 @@ export default defineNuxtConfig({
     debug: true,
   },
 
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        // Явно подключаем типы
+        types: ['@types/dom-speech-recognition']
+      }
+    }
+  },
+
   css: ['~/assets/scss/main.scss'],
 
   app: {

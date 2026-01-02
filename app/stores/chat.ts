@@ -1,10 +1,14 @@
-import { useSettingsStore } from './settings' // <--- IMPORT
+import { useSettingsStore } from './settings'
+
 export interface Message {
   id: string
   role: 'user' | 'assistant'
   text: string
   createdAt: Date
 }
+
+// 👇 Вспомогательный тип: так сообщение выглядит внутри localStorage (JSON)
+type SerializedMessage = Omit<Message, 'createdAt'> & { createdAt: string }
 
 export const useChatStore = defineStore('chat', () => {
   // --- STATE ---
@@ -34,6 +38,7 @@ export const useChatStore = defineStore('chat', () => {
     isLoading.value = true
 
     try {
+      // Формируем историю для API
       const apiMessages = messages.value.slice(-10).map(m => ({
         role: m.role,
         content: m.text
@@ -41,7 +46,6 @@ export const useChatStore = defineStore('chat', () => {
 
       const payload = {
         messages: apiMessages,
-        // Добавляем настройки в запрос
         model: settingsStore.selectedModel,
         temperature: settingsStore.temperature,
         systemPrompt: settingsStore.systemPrompt
@@ -52,7 +56,7 @@ export const useChatStore = defineStore('chat', () => {
         body: payload
       })
 
-      if (data.message && data.message.content) {
+      if (data.message?.content) {
         const aiMsg: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -85,23 +89,28 @@ export const useChatStore = defineStore('chat', () => {
     clearHistory
   }
 }, {
-  // --- PERSISTENCE CONFIGURATION ---
+  // --- PERSISTENCE ---
   persist: {
     pick: ['messages'],
-
-    // Serializer обязателен для восстановления дат
     serializer: {
       serialize: (state) => JSON.stringify(state),
       deserialize: (storageValue) => {
         try {
-          const parsed = JSON.parse(storageValue)
-          if (parsed.messages) {
-            parsed.messages = parsed.messages.map((m: any) => ({
-              ...m,
-              createdAt: new Date(m.createdAt)
-            }))
+          // 1. Парсим как "Сырой стейт" (где даты — это строки)
+          const rawState = JSON.parse(storageValue) as { messages: SerializedMessage[] }
+
+          // 2. Преобразуем в "Реальный стейт" (где даты — это Date)
+          const realMessages: Message[] = rawState.messages
+            ? rawState.messages.map((m) => ({
+                ...m,
+                createdAt: new Date(m.createdAt)
+              }))
+            : []
+
+          // 3. Возвращаем объект, соответствующий Store State
+          return {
+            messages: realMessages
           }
-          return parsed
         } catch (e) {
           console.error('Persistence deserialization error:', e)
           return { messages: [] }
